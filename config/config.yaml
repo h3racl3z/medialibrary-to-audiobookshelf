@@ -1,0 +1,40 @@
+defaults:
+  # Cron schedule for automatic checks in service mode.
+  # This example checks every 6 hours.
+  schedule: "0 */6 * * *"
+  # Default lookback period for episodes to include.
+  # Supported units are days (d), weeks (w), and months (m), e.g. 14d, 2w, or 1m.
+  download_period: 14d
+  # MP3 quality passed to yt-dlp/ffmpeg.
+  # 0 is the best variable quality, 10 is the lowest variable quality.
+  # Fixed bitrates like "128K" or "192K" are also supported.
+  audio_quality: "128K"
+
+# Optional Audiobookshelf integration.
+# When enabled, the configured library is scanned after each successful run.
+audiobookshelf:
+  enabled: false
+  # Base URL of your Audiobookshelf instance, e.g. http://audiobookshelf:13378
+  url: http://audiobookshelf:13378
+  # Library ID to scan after finished downloads; not the library display name.
+  # You can get it from the Audiobookshelf API: GET /api/libraries or look up URL of your library.
+  library_id: ""
+  # Audiobookshelf API token used to trigger the library scan.
+  # Leave this empty while the audiobookshelf scan automation is disabled.
+  api_token: ""
+
+# Shows to download.
+shows:
+  # Display name used in logs and output.
+  - name: Markus Lanz
+    # URL of the series/show page in the media library.
+    url: https://www.zdf.de/talk/markus-lanz-114
+    # Subfolder inside /downloads.
+    # This example writes to /downloads/Markus Lanz.
+    download_path: Markus Lanz
+    # Set metadata for mp3-files. The episode description and release date are extracted automatically.
+    metadata:
+      show: Markus Lanz
+      publisher: ZDF
+      language: de
+      genre: Talk

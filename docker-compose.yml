@@ -1,0 +1,30 @@
+services:
+
+# medialibrary-to-audiobookshelf:
+  medialibrary-to-audiobookshelf:
+    container_name: medialibrary-to-audiobookshelf
+    hostname: medialibrary-to-audiobookshelf
+    image: ghcr.io/h3racl3z/medialibrary-to-audiobookshelf:latest   # Use the latest image from GitHub Container Registry
+    pull_policy: always                                             # Always pull the latest image when starting the container
+    command: ["serve"]                                              # Start the server when the container is run
+    volumes:
+      - ./path_to_downloads:/downloads                              # Path to your download directory, e. g. your audiobookshelf podcast directory
+      - ./path_to_config:/config                                    # Path to your configuration directory; this is where the config.yaml file should be located
+    environment:
+      TZ: Europe/Berlin                                             # Set your timezone
+      YT_DLP_VERSION: latest                                        # Use "latest" to update yt-dlp on container start, or set a fixed version like "2026.3.17" (https://github.com/yt-dlp/yt-dlp/tags)
+      LOG_LEVEL: INFO                                               # Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL
+      PYTHONUNBUFFERED: "1"                                         # Disable Python output buffering, write output to the your console (don't remove this, otherwise you won't see any logs in your console)
+      PYTHONPYCACHEPREFIX: /tmp/pycache                             # Set the location for Python's bytecode cache to avoid filling up your config directory with __pycache__ folders (set to temporary directory; don't change)
+    networks:
+      medialibrary-to-audiobookshelf:
+        ipv4_address: "172.16.100.2"
+
+# network:
+networks:
+  medialibrary-to-audiobookshelf:
+    name: medialibrary-to-audiobookshelf
+    ipam:
+      config:
+        - subnet: 172.16.100.0/24
+          gateway: 172.16.100.1
