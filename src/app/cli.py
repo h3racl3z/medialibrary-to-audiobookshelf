@@ -21,6 +21,9 @@ from urllib.request import Request, urlopen
 
 CONFIG_OUTPUT_DIR = Path("/downloads")
 CONFIG_DOWNLOAD_LOG = Path("/config/download.log")
+CONFIG_DIR = Path("/config")
+CONFIG_FILENAME_ENV = "CONFIG_FILENAME"
+DEFAULT_CONFIG_FILENAME = "config.yaml"
 LOGGER = logging.getLogger("app")
 
 
@@ -143,8 +146,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--config",
         type=Path,
-        default=Path("/config/config.yaml"),
-        help="Path to YAML config file. Default: /config/config.yaml",
+        default=default_config_path(),
+        help="Path to YAML config file. Default: /config/$CONFIG_FILENAME or /config/config.yaml",
     )
     run_parser.add_argument(
         "--dry-run",
@@ -156,8 +159,8 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument(
         "--config",
         type=Path,
-        default=Path("/config/config.yaml"),
-        help="Path to YAML config file. Default: /config/config.yaml",
+        default=default_config_path(),
+        help="Path to YAML config file. Default: /config/$CONFIG_FILENAME or /config/config.yaml",
     )
     serve_parser.add_argument(
         "--run-on-start",
@@ -167,6 +170,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     return parser
+
+
+def default_config_path() -> Path:
+    config_filename = os.environ.get(CONFIG_FILENAME_ENV, DEFAULT_CONFIG_FILENAME).strip()
+    return CONFIG_DIR / (config_filename or DEFAULT_CONFIG_FILENAME)
 
 
 def add_common_args(parser: argparse.ArgumentParser) -> None:

@@ -10,7 +10,7 @@
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
 </div>
 
-**Docker-based application** for scheduled downloading recent episodes from media libraries without official podcast support, converting them to **mp3**, and writing podcast-friendly **ID3-metadata** for [Audiobookshelf](https://www.audiobookshelf.org/). The application is based on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for accessing media libraries and [`ffmpeg`](https://ffmpeg.org/) for audio conversion.
+**Docker-based application** for scheduled downloading recent episodes from media libraries without official podcast support, converting them to **MP3**, and writing podcast-friendly **ID3-metadata** for [`Audiobookshelf`](https://www.audiobookshelf.org/). The application is based on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for accessing media libraries and [`ffmpeg`](https://ffmpeg.org/) for audio conversion.
 
 ## Supported popular media libraries:
 
@@ -101,22 +101,10 @@
 <details>
 <summary>Scandinavia 🇸🇪 🇳🇴 🇩🇰 🇫🇮</summary>
 
-### Sweden
-
 - SVT Play
-
-### Norway
-
 - NRK TV
-
-### Denmark
-
 - DR TV
-
-### Finland
-
 - YLE Areena
-
 </details>
 
 <details>
@@ -171,12 +159,14 @@ medialibrary-to-audiobookshelf
 
 ### Docker Compose with GitHub Container Registry
 
-1. Place `docker-compose.yml` and the `config` folder on your server.
+1. Place `docker-compose.yml` and create `/config` folder on your server. Create a `/config/config.yaml` file or download the example configuration. `download.log is` automatically generated and keeps track of all downloaded episodes to prevent them from being processed again. Delete this file to reset the application.
 2. Adjust the mount paths in `docker-compose.yml`:
    ```yaml
    volumes:
      - ./path_to_downloads:/downloads   # Path to your Audiobookshelf podcast folder, e. g. /audiobookshelf/podcasts
      - ./path_to_config:/config         # Persistent folder for config.yaml and download.log
+   environment:
+     CONFIG_FILENAME: config.yaml        # Name of the YAML config file inside /config
    ```
 3. Pull and start the container:
    ```bash
@@ -186,8 +176,7 @@ medialibrary-to-audiobookshelf
 
 ## Configuration
 
-The main configuration file is located at `/config/config.yaml` inside the container. With the
-included Compose file, this path is mounted to a host folder. Example:
+The main configuration file is located at `/config/config.yaml` by default. Set `CONFIG_FILENAME` in `docker-compose.yml` to use another file name inside `/config`, for example `CONFIG_FILENAME: config.prod.yaml`. With the included Compose file, this path is mounted to a host folder. Example:
 
 ```yaml
 defaults:
@@ -238,21 +227,21 @@ shows:
 
 ## Usage
 
-1. **Create the configuration:** Edit `/config/config.yaml` and add the shows you want to download.
+1. **Create the configuration:** Edit `/config/config.yaml` or the file name set via `CONFIG_FILENAME` and add the shows you want to download.
 2. **Start the container:** Start the service with `docker compose up -d`.
 3. **Check logs:** Monitor the run with `docker logs medialibrary-to-audiobookshelf`.
 4. **Scan Audiobookshelf:** Optionally enable the Audiobookshelf integration in the YAML file.
 
 ## Audiobookshelf scanner integration
 
-When enabled, the application triggers an Audiobookshelf library scan after a run:
+When enabled, the application triggers an Audiobookshelf library scan after a run, e. g.:
 
 ```yaml
 audiobookshelf:
   enabled: true
-  url: http://audiobookshelf:13378
-  library_id: lib_xxxxxxxxxxxxx
-  api_token: your_api_token_here
+  url: http://192.168.2.100:13378 # or https://audiobookshelf.yourdomain.com
+  library_id: 5912dt2d-fz4b-3b88-6d7o-25fe4699qec4
+  api_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlJZCI6ImM4M2UzZmE0LTlhZDQtNDg1MS1hYTY0LTdiNDQ5NzUxMDVlMCIsIm5hbWUiOiJ0ZXN0IiwidHlwZSI6ImFwaSIsImlhdCI6MTc3ODkxODU1MX0.KcSbw1R5jjSKEDgiJ9mM1qmz0uai6t2JjnkeD94a1GU
 ```
 
 `library_id` is the technical library ID, not the display name. It can be retrieved through the
@@ -261,6 +250,7 @@ Audiobookshelf API with `GET /api/libraries` or look up URL of your library.
 ## Environment Variables
 
 - **`TZ`**: Container timezone, for example `Europe/Berlin`.
+- **`CONFIG_FILENAME`**: Name of the YAML config file inside `/config`. Default: `config.yaml`.
 - **`YT_DLP_VERSION`**: `latest` to update on container start or a fixed version such as `2026.3.17`.
 - **`LOG_LEVEL`**: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`.
 - **`PYTHONUNBUFFERED`**: Makes logs appear immediately in Docker output.
@@ -268,11 +258,11 @@ Audiobookshelf API with `GET /api/libraries` or look up URL of your library.
 
 ## Libraries & Credits
 
-- **yt-dlp**: Downloading and extracting media-library content ([yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp)).
-- **ffmpeg**: Audio conversion and MP3 creation ([ffmpeg.org](https://ffmpeg.org/)).
-- **mutagen**: Writing ID3 metadata ([mutagen.readthedocs.io](https://mutagen.readthedocs.io/)).
-- **croniter**: Calculating cron schedule times ([croniter on PyPI](https://pypi.org/project/croniter/)).
-- **PyYAML**: Reading YAML configuration ([PyYAML on PyPI](https://pypi.org/project/PyYAML/)).
+- **yt-dlp**: Downloading and extracting media-library content ([yt-dlp](https://github.com/yt-dlp/yt-dlp)).
+- **ffmpeg**: Audio conversion and MP3 creation ([ffmpeg](https://ffmpeg.org/)).
+- **mutagen**: Writing ID3 metadata ([mutagen](https://mutagen.readthedocs.io/)).
+- **croniter**: Calculating cron schedule times ([croniter](https://pypi.org/project/croniter/)).
+- **PyYAML**: Reading YAML configuration ([PyYAML](https://pypi.org/project/PyYAML/)).
 
 ## License
 

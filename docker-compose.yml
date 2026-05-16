@@ -13,6 +13,7 @@ services:
     environment:
       TZ: Europe/Berlin                                             # Set your timezone
       YT_DLP_VERSION: latest                                        # Use "latest" to update yt-dlp on container start, or set a fixed version like "2026.3.17" (https://github.com/yt-dlp/yt-dlp/tags)
+      CONFIG_FILENAME: config.yaml                                  # Name of the YAML config file inside /config, e. g. config.yaml
       LOG_LEVEL: INFO                                               # Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL
       PYTHONUNBUFFERED: "1"                                         # Disable Python output buffering, write output to the your console (don't remove this, otherwise you won't see any logs in your console)
       PYTHONPYCACHEPREFIX: /tmp/pycache                             # Set the location for Python's bytecode cache to avoid filling up your config directory with __pycache__ folders (set to temporary directory; don't change)
