@@ -8,11 +8,10 @@
 <a href="https://github.com/h3racl3z/medialibrary-to-audiobookshelf/actions/workflows/docker-image.yml"><img src="https://img.shields.io/github/actions/workflow/status/h3racl3z/medialibrary-to-audiobookshelf/docker-image.yml?label=Docker%20Build" alt="Docker Build"></a>
 <a href="https://github.com/h3racl3z/medialibrary-to-audiobookshelf"><img src="https://img.shields.io/github/languages/code-size/h3racl3z/medialibrary-to-audiobookshelf" alt="Code Size"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
-</div>
+</div><br>
 
-**Docker-based application** for scheduled downloading recent episodes from media libraries without official podcast support, converting them to **MP3**, and writing podcast-friendly **ID3-metadata** for [`Audiobookshelf`](https://www.audiobookshelf.org/). The application is based on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for accessing media libraries and [`ffmpeg`](https://ffmpeg.org/) for audio conversion.
-
-## Supported popular media libraries:
+**Docker-based application** for scheduled downloading recent episodes from media libraries without official podcast support, converting them to **MP3**, and writing podcast-friendly **ID3-metadata** for [`Audiobookshelf`](https://www.audiobookshelf.org/). The application is based on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for accessing media libraries and [`ffmpeg`](https://ffmpeg.org/) for audio conversion.<br><br>
+## Supported popular media libraries
 
 <details>
 <summary>Germany 🇩🇪</summary>
