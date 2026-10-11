@@ -1,6 +1,6 @@
 [project]
 name = "medialibrary-to-audiobookshelf"
-version = "0.1.0"
+version = "1.0.0"
 description = "List and download recent media library episodes as MP3 files using yt-dlp."
 requires-python = ">=3.11"
 dependencies = [

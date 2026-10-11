@@ -250,7 +250,7 @@ Audiobookshelf API with `GET /api/libraries` or look up URL of your library.
 
 - **`TZ`**: Container timezone, for example `Europe/Berlin`.
 - **`CONFIG_FILENAME`**: Name of the YAML config file inside `/config`. Default: `/config.yaml`.
-- **`YT_DLP_VERSION`**: `latest` to update on container start or a fixed version such as `2026.3.17`.
+- **`YT_DLP_VERSION`**: `latest` to update on container start and before every scheduled run, or a fixed version such as `2026.3.17`.
 - **`LOG_LEVEL`**: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`.
 - **`PYTHONUNBUFFERED`**: Makes logs appear immediately in Docker output.
 - **`PYTHONPYCACHEPREFIX`**: Stores Python cache files in a temporary path.

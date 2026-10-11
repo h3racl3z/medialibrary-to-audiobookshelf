@@ -13,6 +13,7 @@ from calendar import monthrange
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, cast
 from urllib.error import HTTPError, URLError
@@ -21,6 +22,7 @@ from urllib.request import Request, urlopen
 
 CONFIG_OUTPUT_DIR = Path("/downloads")
 CONFIG_DOWNLOAD_LOG = Path("/config/download.log")
+CONFIG_ERROR_LOG = Path("/config/error.log")
 CONFIG_DIR = Path("/config")
 CONFIG_FILENAME_ENV = "CONFIG_FILENAME"
 DEFAULT_CONFIG_FILENAME = "config.yaml"
@@ -224,8 +226,8 @@ def download_command(args: argparse.Namespace) -> int:
 
 def run_command(args: argparse.Namespace) -> int:
     config = load_config(args.config)
-    process_config(config, dry_run=args.dry_run)
-    return 0
+    failures = process_config(config, dry_run=args.dry_run)
+    return 1 if failures else 0
 
 
 def serve_command(args: argparse.Namespace) -> int:
@@ -235,62 +237,119 @@ def serve_command(args: argparse.Namespace) -> int:
     LOGGER.info("Scheduler started with cron schedule: %s", config.schedule)
     if args.run_on_start:
         LOGGER.info("Running once on start.")
-        process_config(config, dry_run=False)
+        run_scheduled(config)
 
     while True:
-        config = load_config(args.config)
+        config = reload_config(args.config, config)
         next_run = next_scheduled_run(config.schedule)
         sleep_seconds = max(0.0, (next_run - datetime.now().astimezone()).total_seconds())
         LOGGER.info("Next run: %s", next_run.isoformat())
         time.sleep(sleep_seconds)
-        process_config(config, dry_run=False)
+        update_yt_dlp_before_run()
+        run_scheduled(config)
 
 
-def process_config(config: AppConfig, *, dry_run: bool) -> None:
+def run_scheduled(config: AppConfig) -> None:
+    # A failed run must never stop the scheduler; the next run gets a fresh chance.
+    try:
+        failures = process_config(config, dry_run=False)
+    except Exception:
+        LOGGER.exception("Run failed, waiting for the next scheduled run.")
+        return
+    if failures:
+        LOGGER.warning("Run finished with %d error(s).", failures)
+
+
+def reload_config(path: Path, current: AppConfig) -> AppConfig:
+    try:
+        return load_config(path)
+    except AppError as exc:
+        LOGGER.error("Could not reload config, keeping the previous one: %s", exc)
+        return current
+
+
+def update_yt_dlp_before_run() -> None:
+    # Site extractors break regularly; without this, yt-dlp would only be updated on container start.
+    try:
+        configure_yt_dlp_version()
+    except AppError as exc:
+        LOGGER.warning("%s", exc)
+
+
+def process_config(config: AppConfig, *, dry_run: bool) -> int:
     CONFIG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG_DOWNLOAD_LOG.parent.mkdir(parents=True, exist_ok=True)
 
+    failures = 0
     for show in config.shows:
-        show_output_dir = CONFIG_OUTPUT_DIR / show.download_path
-        LOGGER.info("Show: %s (%s)", show.name, show.download_period)
-        episodes = recent_episodes_since(show.url, cutoff_for_period(show.download_period))
-        if not episodes:
-            LOGGER.info("No matching episodes found.")
-            continue
-
-        show_output_dir.mkdir(parents=True, exist_ok=True)
-        for episode in episodes:
-            command = build_download_command(
-                episode=episode,
-                output_dir=show_output_dir,
-                archive_file=CONFIG_DOWNLOAD_LOG,
-                audio_quality=config.audio_quality,
-                show_name=show.metadata.show or show.name,
-            )
-            LOGGER.debug("yt-dlp command: %s", format_command(command))
-            LOGGER.info("Downloading: %s %s", episode.date_text, episode.title)
-            if dry_run:
-                print(format_command(command))
-                continue
-
-            info = fetch_video_info(episode.url)
-            result = subprocess.run(command, check=True, capture_output=True, text=True)
-            if result.stderr:
-                LOGGER.debug("yt-dlp stderr: %s", result.stderr.strip())
-
-            for line in result.stdout.splitlines():
-                downloaded_path = parse_downloaded_filepath(line)
-                if downloaded_path is None:
-                    LOGGER.debug("yt-dlp output: %s", line)
-                    continue
-                apply_mp3_metadata(downloaded_path, show, info)
-                LOGGER.info("Tagged: %s", downloaded_path)
+        try:
+            failures += process_show(config, show, dry_run=dry_run)
+        except AppError as exc:
+            LOGGER.error("Show %s failed: %s", show.name, exc)
+            failures += 1
 
     if config.audiobookshelf.enabled:
         if dry_run:
             LOGGER.info("Audiobookshelf scan skipped in dry-run mode.")
         else:
             trigger_audiobookshelf_scan(config.audiobookshelf)
+
+    return failures
+
+
+def process_show(config: AppConfig, show: ShowConfig, *, dry_run: bool) -> int:
+    show_output_dir = CONFIG_OUTPUT_DIR / show.download_path
+    LOGGER.info("Show: %s (%s)", show.name, show.download_period)
+    episodes = recent_episodes_since(show.url, cutoff_for_period(show.download_period))
+    if not episodes:
+        LOGGER.info("No matching episodes found.")
+        return 0
+
+    show_output_dir.mkdir(parents=True, exist_ok=True)
+    failures = 0
+    for episode in episodes:
+        command = build_download_command(
+            episode=episode,
+            output_dir=show_output_dir,
+            archive_file=CONFIG_DOWNLOAD_LOG,
+            audio_quality=config.audio_quality,
+            show_name=show.metadata.show or show.name,
+        )
+        LOGGER.debug("yt-dlp command: %s", format_command(command))
+        LOGGER.info("Downloading: %s %s", episode.date_text, episode.title)
+        if dry_run:
+            print(format_command(command))
+            continue
+
+        try:
+            download_episode(command, episode, show)
+        except AppError as exc:
+            LOGGER.error("Episode %s %s failed: %s", episode.date_text, episode.title, exc)
+            failures += 1
+
+    return failures
+
+
+def download_episode(command: list[str], episode: Episode, show: ShowConfig) -> None:
+    try:
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        details = (exc.stderr or "").strip() or (exc.stdout or "").strip() or str(exc)
+        raise AppError(f"yt-dlp failed while downloading: {details}") from exc
+    if result.stderr:
+        LOGGER.debug("yt-dlp stderr: %s", result.stderr.strip())
+
+    # Episodes already in the download archive produce no file, so metadata is only fetched when needed.
+    info: dict[str, Any] | None = None
+    for line in result.stdout.splitlines():
+        downloaded_path = parse_downloaded_filepath(line)
+        if downloaded_path is None:
+            LOGGER.debug("yt-dlp output: %s", line)
+            continue
+        if info is None:
+            info = fetch_video_info(episode.url)
+        apply_mp3_metadata(downloaded_path, show, info)
+        LOGGER.info("Tagged: %s", downloaded_path)
 
 
 def load_config(path: Path) -> AppConfig:
@@ -646,24 +705,33 @@ def parse_downloaded_filepath(line: str) -> Path | None:
 
 def apply_mp3_metadata(path: Path, show: ShowConfig, info: dict[str, Any]) -> None:
     try:
-        from mutagen.id3 import (
-            ID3,
-            TALB,
-            TCON,
-            TDRC,
-            TIT2,
-            TLAN,
-            TPE1,
-            TPUB,
-            TPOS,
-            TRCK,
-            TSOT,
-        )
+        from mutagen import MutagenError
+        from mutagen.id3 import ID3
         from mutagen.mp3 import MP3
     except ImportError as exc:
         raise AppError("mutagen is required for MP3 metadata tagging") from exc
 
-    audio = MP3(path, ID3=ID3)
+    try:
+        write_mp3_metadata(MP3(path, ID3=ID3), path, show, info)
+    except MutagenError as exc:
+        raise AppError(f"could not write MP3 metadata to {path}: {exc}") from exc
+
+
+def write_mp3_metadata(audio: Any, path: Path, show: ShowConfig, info: dict[str, Any]) -> None:
+    from mutagen.id3 import (
+        ID3,
+        TALB,
+        TCON,
+        TDRC,
+        TIT2,
+        TLAN,
+        TPE1,
+        TPUB,
+        TPOS,
+        TRCK,
+        TSOT,
+    )
+
     if audio.tags is None:
         audio.add_tags()
     tags = cast(ID3, audio.tags)
@@ -811,6 +879,23 @@ def configure_logging() -> None:
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    configure_error_log()
+
+
+def configure_error_log() -> None:
+    # Warnings and errors are also kept in /config, so they survive container recreation.
+    if not CONFIG_DIR.is_dir():
+        return
+
+    try:
+        handler = RotatingFileHandler(CONFIG_ERROR_LOG, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+    except OSError as exc:
+        LOGGER.warning("Could not open error log %s: %s", CONFIG_ERROR_LOG, exc)
+        return
+
+    handler.setLevel(logging.WARNING)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+    logging.getLogger().addHandler(handler)
 
 
 def yt_dlp_command(*args: str) -> list[str]:

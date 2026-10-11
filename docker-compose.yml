@@ -6,6 +6,7 @@ services:
     hostname: medialibrary-to-audiobookshelf
     image: ghcr.io/h3racl3z/medialibrary-to-audiobookshelf:latest   # Use the latest image from GitHub Container Registry
     pull_policy: always                                             # Always pull the latest image when starting the container
+    restart: unless-stopped                                         # Restart the container automatically if it ever exits unexpectedly
     command: ["serve"]                                              # Start the server when the container is run
     volumes:
       - ./path_to_downloads:/downloads                              # Path to your download directory, e. g. your audiobookshelf podcast directory
